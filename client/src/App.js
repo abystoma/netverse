@@ -1,25 +1,46 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser } from './reducers/userReducer';
+import { initPosts } from './reducers/postReducer';
+import { clearNotif } from './reducers/notificationReducer';
+import NavBar from './components/NavBar';
+import ToastNotif from './components/ToastNotif';
+import PostsList from './components/PostsList';
 
-function App() {
+import { Paper, Container } from '@material-ui/core/';
+import customTheme from './styles/customTheme';
+import { useMainPaperStyles } from './styles/muiStyles';
+import { ThemeProvider } from '@material-ui/core/styles';
+
+const App = () => {
+  const dispatch = useDispatch();
+  const notification = useSelector((state) => state.notification);
+
+  useEffect(() => {
+    dispatch(setUser());
+    dispatch(initPosts());
+  }, [dispatch]);
+
+  const classes = useMainPaperStyles();
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <ThemeProvider theme={customTheme}>
+      <Paper className={classes.root} elevation={0}>
+        {notification && (
+          <ToastNotif
+            open={!!notification}
+            handleClose={() => dispatch(clearNotif())}
+            severity={notification.severity}
+            message={notification.message}
+          />
+        )}
+        <NavBar />
+        <Container disableGutters maxWidth="lg" className={classes.container}>
+          <PostsList />
+        </Container>
+      </Paper>
+    </ThemeProvider>
   );
-}
+};
 
 export default App;
