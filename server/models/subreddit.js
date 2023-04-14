@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const uniqueValidator = require('mongoose-unique-validator');
 const schemaCleaner = require('../utils/schemaCleaner');
 
-const netspaceSchema = new mongoose.Schema(
+const subredditSchema = new mongoose.Schema(
   {
     subredditName: {
       type: String,
@@ -41,9 +41,9 @@ const netspaceSchema = new mongoose.Schema(
   }
 );
 
-netspaceSchema.plugin(uniqueValidator);
+subredditSchema.plugin(uniqueValidator);
 
 // replaces _id with id, convert id to string from ObjectID and deletes __v
-schemaCleaner(netspaceSchema);
+schemaCleaner(subredditSchema);
 
-module.exports = mongoose.model('netspace', netspaceSchema);
+module.exports = mongoose.model('Subreddit', subredditSchema);

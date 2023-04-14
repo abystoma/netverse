@@ -1,98 +1,222 @@
-const mongoose = require('mongoose');
-const schemaCleaner = require('../utils/schemaCleaner');
+const router = require('express').Router();
+const Post = require('../models/post');
+const Subreddit = require('../models/subreddit');
+const User = require('../models/user');
+const postTypeValidator = require('../utils/postTypeValidator');
+const { auth } = require('../utils/middleware');
+const { cloudinary } = require('../utils/config');
 
-const commentSchema = new mongoose.Schema({
-  commentedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  },
-  commentBody: {
-    type: String,
-    trim: true,
-  },
-  replies: [
-    {
-      repliedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-      replyBody: {
-        type: String,
-        trim: true,
-      },
-      createdAt: { type: Date, default: Date.now },
-      updatedAt: { type: Date, default: Date.now },
-    },
-  ],
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+router.get('/', async (_req, res) => {
+  const allPosts = await Post.find({})
+    .populate('author', 'username')
+    .populate('subreddit', 'subredditName')
+    .select('-comments');
+
+  res.status(200).json(allPosts);
 });
 
-const postSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      required: true,
-      maxlength: 40,
-      trim: true,
-    },
-    postType: {
-      type: String,
-      required: true,
-    },
-    textSubmission: {
-      type: String,
-      trim: true,
-    },
-    linkSubmission: {
-      type: String,
-      trim: true,
-    },
-    imageSubmission: {
-      imageLink: {
-        type: String,
-        trim: true,
-      },
-      imageId: {
-        type: String,
-        trim: true,
-      },
-    },
-    subreddit: {
-      type: String,
-      trim: true,
-      required: true,
-    },
-    author: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    upvotedBy: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    downvotedBy: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    pointsCount: {
-      type: Number,
-      required: true,
-      default: 1,
-    },
-    comments: [commentSchema],
-  },
-  {
-    timestamps: true,
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const post = await Post.findById(id);
+
+  if (!post) {
+    return res
+      .status(404)
+      .send({ message: `Post with ID: '${id}' does not exist in database.` });
   }
-);
 
-// replaces _id with id, convert id to string from ObjectID and deletes __v
-schemaCleaner(postSchema);
-schemaCleaner(commentSchema);
+  const populatedPost = await post
+    .populate('author', 'username')
+    .populate('subreddit', 'subredditName')
+    .populate('comments.commentedBy', 'username')
+    .populate('comments.replies.repliedBy', 'username')
+    .execPopulate();
 
-module.exports = mongoose.model('Post', postSchema);
+  res.status(200).json(populatedPost);
+});
+
+router.post('/', auth, async (req, res) => {
+  const {
+    title,
+    subreddit,
+    postType,
+    textSubmission,
+    linkSubmission,
+    imageSubmission,
+  } = req.body;
+
+  const validatedFields = postTypeValidator(
+    postType,
+    textSubmission,
+    linkSubmission,
+    imageSubmission
+  );
+
+  const author = await User.findById(req.user);
+  const targetSubreddit = await Subreddit.findById(subreddit);
+
+  if (!author) {
+    return res
+      .status(404)
+      .send({ message: 'User does not exist in database.' });
+  }
+
+  if (!targetSubreddit) {
+    return res.status(404).send({
+      message: `Subreddit with ID: '${subreddit}' does not exist in database.`,
+    });
+  }
+
+  const newPost = new Post({
+    title,
+    subreddit,
+    author: author._id,
+    upvotedBy: [author._id],
+    pointsCount: 1,
+    ...validatedFields,
+  });
+
+  if (postType === 'Image') {
+    const uploadedImage = await cloudinary.uploader.upload(
+      imageSubmission,
+      {
+        upload_preset: 'readify',
+      },
+      (error) => {
+        if (error) return res.status(401).send({ message: error.message });
+      }
+    );
+
+    newPost.imageSubmission = {
+      imageLink: uploadedImage.url,
+      imageId: uploadedImage.public_id,
+    };
+  }
+
+  const savedPost = await newPost.save();
+
+  targetSubreddit.posts = targetSubreddit.posts.concat(savedPost._id);
+  await targetSubreddit.save();
+
+  author.posts = author.posts.concat(savedPost._id);
+  author.karmaPoints.postKarma = author.karmaPoints.postKarma + 1;
+  await author.save();
+
+  const postToSend = await savedPost
+    .populate('author', 'username')
+    .populate('subreddit', 'subredditName')
+    .execPopulate();
+
+  res.status(201).json(postToSend);
+});
+
+router.patch('/:id', auth, async (req, res) => {
+  const { id } = req.params;
+
+  const { textSubmission, linkSubmission, imageSubmission } = req.body;
+
+  const post = await Post.findById(id);
+  const author = await User.findById(req.user);
+
+  if (!post) {
+    return res.status(404).send({
+      message: `Post with ID: ${id} does not exist in database.`,
+    });
+  }
+
+  if (!author) {
+    return res
+      .status(404)
+      .send({ message: 'User does not exist in database.' });
+  }
+
+  if (post.author.toString() !== author._id.toString()) {
+    return res.status(401).send({ message: 'Access is denied.' });
+  }
+
+  const validatedFields = postTypeValidator(
+    post.postType,
+    textSubmission,
+    linkSubmission,
+    imageSubmission
+  );
+
+  switch (post.postType) {
+    case 'Text':
+      post.textSubmission = validatedFields.textSubmission;
+      break;
+
+    case 'Link':
+      post.linkSubmission = validatedFields.linkSubmission;
+      break;
+
+    case 'Image':
+      const uploadedImage = await cloudinary.uploader.upload(
+        imageSubmission,
+        {
+          upload_preset: 'readify',
+        },
+        (error) => {
+          if (error) return res.status(401).send({ message: error.message });
+        }
+      );
+
+      post.imageSubmission = {
+        imageLink: uploadedImage.url,
+        imageId: uploadedImage.public_id,
+      };
+      break;
+
+    default:
+      return res.status(403).send({ message: 'Invalid post type.' });
+  }
+
+  post.updatedAt = Date.now;
+
+  await post.save();
+  res.status(202).json(post);
+});
+
+router.delete('/:id', auth, async (req, res) => {
+  const { id } = req.params;
+
+  const post = await Post.findById(id);
+  const author = await User.findById(req.user);
+
+  if (!post) {
+    return res.status(404).send({
+      message: `Post with ID: ${id} does not exist in database.`,
+    });
+  }
+
+  if (!author) {
+    return res
+      .status(404)
+      .send({ message: 'User does not exist in database.' });
+  }
+
+  if (post.author.toString() !== author._id.toString()) {
+    return res.status(401).send({ message: 'Access is denied.' });
+  }
+
+  const subreddit = await Subreddit.findById(post.subreddit);
+
+  if (!subreddit) {
+    return res.status(404).send({
+      message: `Subreddit with ID: '${subreddit._id}'  does not exist in database.`,
+    });
+  }
+
+  await Post.findByIdAndDelete(id);
+
+  subreddit.posts = subreddit.posts.filter((p) => p.toString() !== id);
+  await subreddit.save();
+
+  author.posts = author.posts.filter((p) => p.toString() !== id);
+  await author.save();
+
+  res.status(204).end();
+});
+
+module.exports = router;

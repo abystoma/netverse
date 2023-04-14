@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const uniqueValidator = require('mongoose-unique-validator');
 const schemaCleaner = require('../utils/schemaCleaner');
+const { commentSchema } = require('./post');
 
 const userSchema = new mongoose.Schema(
   {
@@ -32,8 +33,14 @@ const userSchema = new mongoose.Schema(
       },
     },
     karmaPoints: {
-      type: Number,
-      default: 0,
+      postKarma: {
+        type: Number,
+        default: 0,
+      },
+      commentKarma: {
+        type: Number,
+        default: 0,
+      },
     },
     posts: [
       {
@@ -43,8 +50,8 @@ const userSchema = new mongoose.Schema(
     ],
     subscribedSubs: [
       {
-        type: String,
-        trim: true,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subreddit',
       },
     ],
   },
