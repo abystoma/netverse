@@ -2,12 +2,13 @@ import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser } from './reducers/userReducer';
 import { initPosts } from './reducers/postReducer';
+import { setSubredditList } from './reducers/subredditReducer';
 import { clearNotif } from './reducers/notificationReducer';
 import NavBar from './components/NavBar';
 import ToastNotif from './components/ToastNotif';
-import PostsList from './components/PostsList';
+import Routes from './components/Routes';
 
-import { Paper, Container } from '@material-ui/core/';
+import { Paper } from '@material-ui/core/';
 import customTheme from './styles/customTheme';
 import { useMainPaperStyles } from './styles/muiStyles';
 import { ThemeProvider } from '@material-ui/core/styles';
@@ -18,8 +19,18 @@ const App = () => {
 
   useEffect(() => {
     dispatch(setUser());
-    dispatch(initPosts());
-  }, [dispatch]);
+    const setPostsAndSubreddits = async () => {
+      try {
+        dispatch(initPosts());
+        dispatch(setSubredditList());
+      } catch (err) {
+        console.log(err.message);
+      }
+    };
+
+    setPostsAndSubreddits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const classes = useMainPaperStyles();
 
@@ -35,9 +46,7 @@ const App = () => {
           />
         )}
         <NavBar />
-        <Container disableGutters maxWidth="lg" className={classes.container}>
-          <PostsList />
-        </Container>
+        <Routes />
       </Paper>
     </ThemeProvider>
   );

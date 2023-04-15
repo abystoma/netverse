@@ -1,37 +1,33 @@
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link as RouterLink } from 'react-router-dom';
-import { toggleUpvote, toggleDownvote } from '../reducers/postReducer';
-import AuthFormModal from './AuthFormModal';
+import { UpvoteButton, DownvoteButton } from './VoteButtons';
 import EditDeleteMenu from './EditDeleteMenu';
-import getEditedThumbail from '../utils/getEditedThumbnail';
+import getEditedThumbail from '../utils/cloudinaryTransform';
 import { trimLink, prettifyLink, fixUrl } from '../utils/formatUrl';
 import ReactTimeAgo from 'react-time-ago';
 
 import {
   Paper,
-  Checkbox,
   Typography,
   useMediaQuery,
   CardMedia,
-  Tooltip,
   Link,
   Button,
 } from '@material-ui/core';
 import { useCardStyles } from '../styles/muiStyles';
 import { useTheme } from '@material-ui/core/styles';
-import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
-import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
 import MessageIcon from '@material-ui/icons/Message';
 import LinkIcon from '@material-ui/icons/Link';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import CommentIcon from '@material-ui/icons/Comment';
 
-const PostCard = ({ post }) => {
+const PostCard = ({ post, toggleUpvote, toggleDownvote }) => {
   const {
     id,
     title,
     postType,
+    textSubmission,
     linkSubmission,
     imageSubmission,
     subreddit,
@@ -41,6 +37,7 @@ const PostCard = ({ post }) => {
     pointsCount,
     commentCount,
     createdAt,
+    updatedAt,
   } = post;
 
   const user = useSelector((state) => state.user);
@@ -51,17 +48,17 @@ const PostCard = ({ post }) => {
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('xs'));
-  const classes = useCardStyles(isUpvoted, isDownvoted)();
+  const classes = useCardStyles();
 
   const handleUpvoteToggle = async () => {
     try {
       if (isUpvoted) {
         const updatedUpvotedBy = upvotedBy.filter((u) => u !== user.id);
-        await dispatch(toggleUpvote(id, updatedUpvotedBy, downvotedBy));
+        dispatch(toggleUpvote(id, updatedUpvotedBy, downvotedBy));
       } else {
         const updatedUpvotedBy = [...upvotedBy, user.id];
         const updatedDownvotedBy = downvotedBy.filter((d) => d !== user.id);
-        await dispatch(toggleUpvote(id, updatedUpvotedBy, updatedDownvotedBy));
+        dispatch(toggleUpvote(id, updatedUpvotedBy, updatedDownvotedBy));
       }
     } catch (err) {
       console.log(err.response.data.message);
@@ -72,13 +69,11 @@ const PostCard = ({ post }) => {
     try {
       if (isDownvoted) {
         const updatedDownvotedBy = downvotedBy.filter((d) => d !== user.id);
-        await dispatch(toggleDownvote(id, updatedDownvotedBy, upvotedBy));
+        dispatch(toggleDownvote(id, updatedDownvotedBy, upvotedBy));
       } else {
         const updatedDownvotedBy = [...downvotedBy, user.id];
         const updatedUpvotedBy = upvotedBy.filter((u) => u !== user.id);
-        await dispatch(
-          toggleDownvote(id, updatedDownvotedBy, updatedUpvotedBy)
-        );
+        dispatch(toggleDownvote(id, updatedDownvotedBy, updatedUpvotedBy));
       }
     } catch (err) {
       console.log(err.response.data.message);
@@ -91,46 +86,44 @@ const PostCard = ({ post }) => {
       : postType === 'Image'
       ? imageSubmission.imageLink
       : '';
-  const formattedLink = trimLink(prettifyLink(linkToShow));
+  const formattedLink = trimLink(prettifyLink(linkToShow), 30);
 
   return (
     <Paper className={classes.root} variant="outlined">
       <div className={classes.votesWrapper}>
-        {user ? (
-          <Checkbox
-            checked={isUpvoted}
-            icon={<ArrowUpwardIcon style={{ color: '#b2b2b2' }} />}
-            checkedIcon={<ArrowUpwardIcon style={{ color: '#FF8b60' }} />}
-            onChange={handleUpvoteToggle}
-            size={isMobile && 'small'}
-          />
-        ) : (
-          <AuthFormModal type="upvote" />
-        )}
-        <Typography variant="body1" className={classes.points}>
+        <UpvoteButton
+          user={user}
+          body={post}
+          handleUpvote={handleUpvoteToggle}
+          size={isMobile ? 'small' : 'medium'}
+        />
+        <Typography
+          variant="body1"
+          style={{
+            color: isUpvoted ? '#FF8b60' : isDownvoted ? '#9494FF' : '#333',
+            fontWeight: 600,
+          }}
+        >
           {pointsCount}
         </Typography>
-        {user ? (
-          <Checkbox
-            checked={isDownvoted}
-            icon={<ArrowDownwardIcon style={{ color: '#b2b2b2' }} />}
-            checkedIcon={<ArrowDownwardIcon style={{ color: '#9494FF' }} />}
-            onChange={handleDownvoteToggle}
-            size={isMobile && 'small'}
-          />
-        ) : (
-          <AuthFormModal type="downvote" />
-        )}
+        <DownvoteButton
+          user={user}
+          body={post}
+          handleDownvote={handleDownvoteToggle}
+          size={isMobile ? 'small' : 'medium'}
+        />
       </div>
       <div className={classes.thumbnailWrapper}>
         {postType === 'Text' ? (
-          <Paper elevation={0} square className={classes.thumbnail}>
-            <MessageIcon
-              fontSize="inherit"
-              className={classes.thumbnailIcon}
-              style={{ color: '#787878' }}
-            />
-          </Paper>
+          <RouterLink to={`/comments/${id}`}>
+            <Paper elevation={0} square className={classes.thumbnail}>
+              <MessageIcon
+                fontSize="inherit"
+                className={classes.thumbnailIcon}
+                style={{ color: '#787878' }}
+              />
+            </Paper>
+          </RouterLink>
         ) : postType === 'Link' ? (
           <a href={fixUrl(linkSubmission)} target="_noblank">
             <Paper elevation={0} square className={classes.thumbnail}>
@@ -183,12 +176,8 @@ const PostCard = ({ post }) => {
             <Link component={RouterLink} to={`/u/${author.username}`}>
               u/{author.username}
             </Link>{' '}
-            •{' '}
-            <Tooltip title={String(new Date(createdAt))}>
-              <span>
-                <ReactTimeAgo date={createdAt} />
-              </span>
-            </Tooltip>
+            • <ReactTimeAgo date={new Date(createdAt)} />
+            {createdAt !== updatedAt && '*'}
           </Typography>
         </Typography>
         <div className={classes.bottomBtns}>
@@ -202,7 +191,15 @@ const PostCard = ({ post }) => {
             {commentCount} comments
           </Button>
           {user && user.id === author.id && (
-            <EditDeleteMenu id={id} isMobile={isMobile} title={title} />
+            <EditDeleteMenu
+              id={id}
+              isMobile={isMobile}
+              title={title}
+              postType={postType}
+              subreddit={subreddit}
+              textSubmission={textSubmission}
+              linkSubmission={linkSubmission}
+            />
           )}
         </div>
       </div>

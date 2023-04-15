@@ -4,16 +4,33 @@ const User = require('../models/user');
 const { auth } = require('../utils/middleware');
 
 router.get('/', async (_req, res) => {
-  const allSubreddits = await Subreddit.find({});
-  res.json(allSubreddits);
+  const allSubreddits = await Subreddit.find({}).select('id subredditName');
+  res.status(200).json(allSubreddits);
 });
 
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  const subreddit = await Subreddit.findById(id).populate('admin', {
-    username: 1,
-  });
-  res.json(subreddit);
+router.get('/:subredditName', async (req, res) => {
+  const { subredditName } = req.params;
+
+  const subreddit = await Subreddit.findOne({
+    subredditName: { $regex: new RegExp('^' + subredditName + '$', 'i') },
+  })
+    .populate('admin', 'username')
+    .populate({
+      path: 'posts',
+      populate: { path: 'subreddit', select: 'subredditName' },
+    })
+    .populate({
+      path: 'posts',
+      populate: { path: 'author', select: 'username' },
+    });
+
+  if (!subreddit) {
+    return res.status(404).send({
+      message: `Subreddit '${subredditName}' does not exist on server.`,
+    });
+  }
+
+  res.status(200).json(subreddit);
 });
 
 router.post('/', auth, async (req, res) => {
@@ -83,7 +100,7 @@ router.patch('/:id', auth, async (req, res) => {
   subreddit.description = description;
 
   await subreddit.save();
-  res.status(202).json(subreddit);
+  res.status(202).end();
 });
 
 router.post('/:id/subscribe', auth, async (req, res) => {

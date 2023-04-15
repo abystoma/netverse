@@ -35,11 +35,15 @@ router.post('/:id/comment', auth, async (req, res) => {
   });
   post.commentCount = numOfComments(post.comments);
   const savedPost = await post.save();
+  const populatedPost = await savedPost
+    .populate('comments.commentedBy', 'username')
+    .execPopulate();
 
   user.karmaPoints.commentKarma++;
+  user.totalComments++;
   await user.save();
 
-  const addedComment = savedPost.comments[savedPost.comments.length - 1];
+  const addedComment = populatedPost.comments[savedPost.comments.length - 1];
   res.status(201).json(addedComment);
 });
 
@@ -120,14 +124,14 @@ router.patch('/:id/comment/:commentId', auth, async (req, res) => {
   }
 
   targetComment.commentBody = comment;
-  targetComment.updatedAt = Date.now;
+  targetComment.updatedAt = Date.now();
 
   post.comments = post.comments.map((c) =>
     c._id.toString() !== commentId ? c : targetComment
   );
 
   await post.save();
-  res.status(202).json(targetComment);
+  res.status(202).end();
 });
 
 router.post('/:id/comment/:commentId/reply', auth, async (req, res) => {
@@ -174,12 +178,20 @@ router.post('/:id/comment/:commentId/reply', auth, async (req, res) => {
     c._id.toString() !== commentId ? c : targetComment
   );
   post.commentCount = numOfComments(post.comments);
-  await post.save();
+  const savedPost = await post.save();
+  const populatedPost = await savedPost
+    .populate('comments.replies.repliedBy', 'username')
+    .execPopulate();
 
   user.karmaPoints.commentKarma++;
+  user.totalComments++;
   await user.save();
 
-  const addedReply = targetComment.replies[targetComment.replies.length - 1];
+  const commentToReply = populatedPost.comments.find(
+    (c) => c._id.toString() === commentId
+  );
+
+  const addedReply = commentToReply.replies[commentToReply.replies.length - 1];
   res.status(201).json(addedReply);
 });
 
@@ -293,7 +305,7 @@ router.patch(
     }
 
     targetReply.replyBody = reply;
-    targetReply.updatedAt = Date.now;
+    targetReply.updatedAt = Date.now();
 
     targetComment.replies = targetComment.replies.map((r) =>
       r._id.toString() !== replyId ? r : targetReply
@@ -304,7 +316,7 @@ router.patch(
     );
 
     await post.save();
-    res.status(202).json(targetReply);
+    res.status(202).end();
   }
 );
 

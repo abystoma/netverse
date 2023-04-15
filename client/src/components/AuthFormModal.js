@@ -2,54 +2,21 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import AuthForm from './AuthForm';
 
+import { DialogTitle } from './CustomDialogTitle';
 import {
   Dialog,
   DialogContent,
   Button,
-  Typography,
   IconButton,
   MenuItem,
   useMediaQuery,
 } from '@material-ui/core';
-import MuiDialogTitle from '@material-ui/core/DialogTitle';
 
 import { useDialogStyles } from '../styles/muiStyles';
-import { withStyles, useTheme } from '@material-ui/core/styles';
+import { useTheme } from '@material-ui/core/styles';
 import { useNavStyles } from '../styles/muiStyles';
-import CloseIcon from '@material-ui/icons/Close';
 import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
 import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
-
-const styles = (theme) => ({
-  root: {
-    margin: 0,
-    padding: theme.spacing(2),
-  },
-  closeButton: {
-    position: 'absolute',
-    right: theme.spacing(1),
-    top: theme.spacing(1),
-    color: theme.palette.primary.main,
-  },
-});
-
-const DialogTitle = withStyles(styles)((props) => {
-  const { children, classes, onClose, ...other } = props;
-  return (
-    <MuiDialogTitle disableTypography className={classes.root} {...other}>
-      <Typography variant="h6">{children}</Typography>
-      {onClose ? (
-        <IconButton
-          aria-label="close"
-          className={classes.closeButton}
-          onClick={onClose}
-        >
-          <CloseIcon />
-        </IconButton>
-      ) : null}
-    </MuiDialogTitle>
-  );
-});
 
 const AuthFormModal = ({ closeMobileMenu, type }) => {
   const [open, setOpen] = useState(false);
@@ -75,11 +42,17 @@ const AuthFormModal = ({ closeMobileMenu, type }) => {
   return (
     <div>
       {type === 'upvote' ? (
-        <IconButton onClick={handleClickOpen} fontSize={isMobile && 'small'}>
+        <IconButton
+          onClick={handleClickOpen}
+          fontSize={isMobile ? 'small' : 'medium'}
+        >
           <ArrowUpwardIcon style={{ color: '#b2b2b2' }} />
         </IconButton>
       ) : type === 'downvote' ? (
-        <IconButton onClick={handleClickOpen} fontSize={isMobile && 'small'}>
+        <IconButton
+          onClick={handleClickOpen}
+          fontSize={isMobile ? 'small' : 'medium'}
+        >
           <ArrowDownwardIcon style={{ color: '#b2b2b2' }} />
         </IconButton>
       ) : isMobile ? (

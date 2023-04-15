@@ -1,31 +1,101 @@
-import React from 'react';
-import { useField } from 'formik';
+import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { useHistory, useLocation } from 'react-router-dom';
+import DeleteDialog from './DeleteDialog';
+import PostFormModal from './PostFormModal';
+import { removePost } from '../reducers/postReducer';
 
-import { TextField } from '@material-ui/core';
+import { IconButton, Menu } from '@material-ui/core';
+import MoreHorizIcon from '@material-ui/icons/MoreHoriz';
 
-export const TextInput = ({
-  placeholder,
-  label,
-  type,
-  required,
-  fullWidth,
-  InputProps,
-  ...props
+const EditDeleteMenu = ({
+  id,
+  title,
+  postType,
+  subreddit,
+  buttonType,
+  textSubmission,
+  linkSubmission,
 }) => {
-  const [field, meta] = useField(props);
-  const errorText = meta.error && meta.touched ? meta.error : '';
+  const [anchorEl, setAnchorEl] = useState(null);
+  const dispatch = useDispatch();
+  const history = useHistory();
+  const location = useLocation();
+
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleDeletePost = async () => {
+    try {
+      handleClose();
+      dispatch(removePost(id));
+      if (location.pathname !== '/') {
+        history.push('/');
+      }
+    } catch (err) {
+      console.log(err.response.data.error);
+    }
+  };
 
   return (
-    <TextField
-      placeholder={placeholder}
-      label={label}
-      type={type}
-      InputProps={InputProps}
-      required
-      fullWidth
-      {...field}
-      helperText={errorText}
-      error={!!errorText}
-    />
+    <div>
+      {buttonType === 'buttonGroup' ? (
+        <div style={{ display: 'flex' }}>
+          <PostFormModal
+            actionType="edit"
+            handleMenuClose={handleClose}
+            postToEditType={postType}
+            postToEditTitle={title}
+            postToEditSub={subreddit}
+            postToEditId={id}
+            textSubmission={textSubmission}
+            linkSubmission={linkSubmission}
+          />
+          <DeleteDialog
+            title={title}
+            handleDelete={handleDeletePost}
+            handleMenuClose={handleClose}
+          />
+        </div>
+      ) : (
+        <div>
+          {' '}
+          <IconButton onClick={handleClick}>
+            <MoreHorizIcon />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            keepMounted
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+          >
+            <div>
+              <PostFormModal
+                actionType="edit"
+                handleMenuClose={handleClose}
+                postToEditType={postType}
+                postToEditTitle={title}
+                postToEditSub={subreddit}
+                postToEditId={id}
+                textSubmission={textSubmission}
+                linkSubmission={linkSubmission}
+              />
+            </div>
+            <DeleteDialog
+              title={title}
+              handleDelete={handleDeletePost}
+              handleMenuClose={handleClose}
+            />
+          </Menu>
+        </div>
+      )}
+    </div>
   );
 };
+
+export default EditDeleteMenu;

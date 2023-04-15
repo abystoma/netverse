@@ -3,24 +3,28 @@ const User = require('../models/user');
 const { auth } = require('../utils/middleware');
 const { cloudinary } = require('../utils/config');
 
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
+router.get('/:username', async (req, res) => {
+  const { username } = req.params;
 
-  const user = await User.findById(id)
+  const user = await User.findOne({
+    username: { $regex: new RegExp('^' + username + '$', 'i') },
+  })
     .populate({
       path: 'posts',
-      select: '-upvotedBy -downvotedBy',
       populate: { path: 'subreddit', select: 'subredditName' },
     })
-    .populate('comments');
+    .populate({
+      path: 'posts',
+      populate: { path: 'author', select: 'username' },
+    });
 
   if (!user) {
     return res
       .status(404)
-      .send({ message: 'User does not exist in database.' });
+      .send({ message: `Username '${username}' does not exist on server.` });
   }
 
-  res.json(user);
+  res.status(200).json(user);
 });
 
 router.post('/avatar', auth, async (req, res) => {

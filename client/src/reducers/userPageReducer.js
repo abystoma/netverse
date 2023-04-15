@@ -1,26 +1,29 @@
+import userService from '../services/user';
 import postService from '../services/posts';
 
-const postReducer = (state = [], action) => {
+const userPageReducer = (state = null, action) => {
   switch (action.type) {
-    case 'INIT_POSTS':
+    case 'FETCH_USER':
       return action.payload;
-    case 'TOGGLE_VOTE':
-      return state.map((s) =>
-        s.id !== action.payload.id ? s : { ...s, ...action.payload.data }
-      );
-    case 'DELETE_POST':
-      return state.filter((s) => s.id !== action.payload);
+    case 'TOGGLE_USERPAGE_VOTE':
+      return {
+        ...state,
+        posts: state.posts.map((p) =>
+          p.id !== action.payload.id ? p : { ...p, ...action.payload.data }
+        ),
+      };
     default:
       return state;
   }
 };
 
-export const initPosts = () => {
+export const fetchUser = (username) => {
   return async (dispatch) => {
-    const posts = await postService.getNewPosts();
+    const user = await userService.getUser(username);
+
     dispatch({
-      type: 'INIT_POSTS',
-      payload: posts.results,
+      type: 'FETCH_USER',
+      payload: user,
     });
   };
 };
@@ -33,7 +36,7 @@ export const toggleUpvote = (id, upvotedBy, downvotedBy) => {
     }
 
     dispatch({
-      type: 'TOGGLE_VOTE',
+      type: 'TOGGLE_USERPAGE_VOTE',
       payload: { id, data: { upvotedBy, pointsCount, downvotedBy } },
     });
 
@@ -49,7 +52,7 @@ export const toggleDownvote = (id, downvotedBy, upvotedBy) => {
     }
 
     dispatch({
-      type: 'TOGGLE_VOTE',
+      type: 'TOGGLE_USERPAGE_VOTE',
       payload: { id, data: { upvotedBy, pointsCount, downvotedBy } },
     });
 
@@ -57,15 +60,4 @@ export const toggleDownvote = (id, downvotedBy, upvotedBy) => {
   };
 };
 
-export const removePost = (id) => {
-  return async (dispatch) => {
-    await postService.deletePost(id);
-
-    dispatch({
-      type: 'DELETE_POST',
-      payload: id,
-    });
-  };
-};
-
-export default postReducer;
+export default userPageReducer;

@@ -5,17 +5,54 @@ const User = require('../models/user');
 const postTypeValidator = require('../utils/postTypeValidator');
 const { auth } = require('../utils/middleware');
 const { cloudinary } = require('../utils/config');
+const paginateResults = require('../utils/paginateResults');
 
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
+  const page = Number(req.query.page);
+  const limit = Number(req.query.limit);
+  const sortBy = req.query.sortby;
+
+  let sortQuery;
+  switch (sortBy) {
+    case 'new':
+      sortQuery = { createdAt: -1 };
+      break;
+    case 'top':
+      sortQuery = { pointsCount: -1 };
+      break;
+    case 'best':
+      sortQuery = { voteRatio: -1 };
+      break;
+    case 'hot':
+      sortQuery = { hotAlgo: -1 };
+      break;
+    case 'controversial':
+      sortQuery = { controversialAlgo: -1 };
+      break;
+    default:
+      sortQuery = {};
+  }
+
+  const postsCount = await Post.countDocuments();
+  const paginated = paginateResults(page, limit, postsCount);
   const allPosts = await Post.find({})
+    .sort(sortQuery)
+    .select('-comments')
+    .limit(limit)
+    .skip(paginated.startIndex)
     .populate('author', 'username')
-    .populate('subreddit', 'subredditName')
-    .select('-comments');
+    .populate('subreddit', 'subredditName');
 
-  res.status(200).json(allPosts);
+  const paginatedPosts = {
+    previous: paginated.results.previous,
+    results: allPosts,
+    next: paginated.results.next,
+  };
+
+  res.status(200).json(paginatedPosts);
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id/comments', async (req, res) => {
   const { id } = req.params;
 
   const post = await Post.findById(id);
@@ -100,15 +137,15 @@ router.post('/', auth, async (req, res) => {
   await targetSubreddit.save();
 
   author.posts = author.posts.concat(savedPost._id);
-  author.karmaPoints.postKarma = author.karmaPoints.postKarma + 1;
+  author.karmaPoints.postKarma++;
   await author.save();
 
-  const postToSend = await savedPost
+  const populatedPost = await savedPost
     .populate('author', 'username')
     .populate('subreddit', 'subredditName')
     .execPopulate();
 
-  res.status(201).json(postToSend);
+  res.status(201).json(populatedPost);
 });
 
 router.patch('/:id', auth, async (req, res) => {
@@ -172,10 +209,17 @@ router.patch('/:id', auth, async (req, res) => {
       return res.status(403).send({ message: 'Invalid post type.' });
   }
 
-  post.updatedAt = Date.now;
+  post.updatedAt = Date.now();
 
-  await post.save();
-  res.status(202).json(post);
+  const savedPost = await post.save();
+  const populatedPost = await savedPost
+    .populate('author', 'username')
+    .populate('subreddit', 'subredditName')
+    .populate('comments.commentedBy', 'username')
+    .populate('comments.replies.repliedBy', 'username')
+    .execPopulate();
+
+  res.status(202).json(populatedPost);
 });
 
 router.delete('/:id', auth, async (req, res) => {
