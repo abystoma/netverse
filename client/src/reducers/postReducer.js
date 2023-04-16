@@ -1,26 +1,60 @@
 import postService from '../services/posts';
 
-const postReducer = (state = [], action) => {
+const postReducer = (state = null, action) => {
   switch (action.type) {
-    case 'INIT_POSTS':
+    case 'SET_POSTS':
       return action.payload;
+    case 'LOAD_MORE_POSTS':
+      return {
+        ...action.payload,
+        results: [...state.results, ...action.payload.results],
+      };
     case 'TOGGLE_VOTE':
-      return state.map((s) =>
-        s.id !== action.payload.id ? s : { ...s, ...action.payload.data }
-      );
+      return {
+        ...state,
+        results: state.results.map((r) =>
+          r.id !== action.payload.id ? r : { ...r, ...action.payload.data }
+        ),
+      };
     case 'DELETE_POST':
-      return state.filter((s) => s.id !== action.payload);
+      return {
+        ...state,
+        results: state.results.filter((r) => r.id !== action.payload),
+      };
     default:
       return state;
   }
 };
 
-export const initPosts = () => {
+export const fetchPosts = (sortBy) => {
   return async (dispatch) => {
-    const posts = await postService.getNewPosts();
+    let posts;
+
+    if (sortBy !== 'subscribed') {
+      posts = await postService.getPosts(sortBy, 10, 1);
+    } else {
+      posts = await postService.getSubPosts(10, 1);
+    }
+
     dispatch({
-      type: 'INIT_POSTS',
-      payload: posts.results,
+      type: 'SET_POSTS',
+      payload: posts,
+    });
+  };
+};
+
+export const loadMorePosts = (sortBy, page) => {
+  return async (dispatch) => {
+    let posts;
+    if (sortBy !== 'subscribed') {
+      posts = await postService.getPosts(sortBy, 10, page);
+    } else {
+      posts = await postService.getSubPosts(10, page);
+    }
+
+    dispatch({
+      type: 'LOAD_MORE_POSTS',
+      payload: posts,
     });
   };
 };

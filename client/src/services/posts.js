@@ -10,8 +10,25 @@ const setConfig = () => {
   };
 };
 
-const getNewPosts = async () => {
-  const response = await axios.get(`${baseUrl}`);
+const getPosts = async (sortBy, limit, page) => {
+  const response = await axios.get(
+    `${baseUrl}/?sortby=${sortBy}&limit=${limit}&page=${page}`
+  );
+  return response.data;
+};
+
+const getSubPosts = async (limit, page) => {
+  const response = await axios.get(
+    `${baseUrl}/subscribed/?limit=${limit}&page=${page}`,
+    setConfig()
+  );
+  return response.data;
+};
+
+const getSearchResults = async (query, limit, page) => {
+  const response = await axios.get(
+    `${baseUrl}/search/?query=${query}&limit=${limit}&page=${page}`
+  );
   return response.data;
 };
 
@@ -141,8 +158,10 @@ const removeReply = async (postId, commentId, replyId) => {
   return response.data;
 };
 
-export default {
-  getNewPosts,
+const postService = {
+  getPosts,
+  getSubPosts,
+  getSearchResults,
   addNew,
   editPost,
   getPostComments,
@@ -160,3 +179,5 @@ export default {
   updateReply,
   removeReply,
 };
+
+export default postService;

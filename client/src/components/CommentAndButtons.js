@@ -5,7 +5,9 @@ import {
   editComment,
   deleteComment,
 } from '../reducers/postCommentsReducer';
+import { notify } from '../reducers/notificationReducer';
 import DeleteDialog from './DeleteDialog';
+import getErrorMsg from '../utils/getErrorMsg';
 
 import { TextField, Button, Typography } from '@material-ui/core';
 import { useCommentAndBtnsStyles } from '../styles/muiStyles';
@@ -14,36 +16,47 @@ import SendIcon from '@material-ui/icons/Send';
 import EditIcon from '@material-ui/icons/Edit';
 
 const CommentAndButtons = ({ isMobile, comment, postId, user }) => {
+  const classes = useCommentAndBtnsStyles();
+  const dispatch = useDispatch();
   const [replyOpen, setReplyOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [replyInput, setReplyInput] = useState('');
   const [editInput, setEditInput] = useState(comment.commentBody);
-  const dispatch = useDispatch();
-  const classes = useCommentAndBtnsStyles();
+  const [submitting, setSubmitting] = useState(false);
 
   const handlePostReply = async () => {
     try {
-      dispatch(addReply(postId, comment.id, replyInput));
+      setSubmitting(true);
+      await dispatch(addReply(postId, comment.id, replyInput));
+      setSubmitting(false);
       setReplyOpen(false);
+      setReplyInput('');
+      dispatch(notify(`Reply submitted!`, 'success'));
     } catch (err) {
-      console.log(err.message);
+      setSubmitting(false);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
-  const handleEditComment = () => {
+  const handleEditComment = async () => {
     try {
-      dispatch(editComment(postId, comment.id, editInput));
+      setSubmitting(true);
+      await dispatch(editComment(postId, comment.id, editInput));
+      setSubmitting(false);
       setEditOpen(false);
+      dispatch(notify(`Comment edited!`, 'success'));
     } catch (err) {
-      console.log(err.message);
+      setSubmitting(false);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
-  const handleCommentDelete = () => {
+  const handleCommentDelete = async () => {
     try {
-      dispatch(deleteComment(postId, comment.id));
+      await dispatch(deleteComment(postId, comment.id));
+      dispatch(notify(`Comment deleted!`, 'success'));
     } catch (err) {
-      console.log(err.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -55,7 +68,6 @@ const CommentAndButtons = ({ isMobile, comment, postId, user }) => {
         <div className={classes.inputDiv}>
           <TextField
             multiline
-            required
             fullWidth
             rows={2}
             rowsMax={Infinity}
@@ -80,8 +92,9 @@ const CommentAndButtons = ({ isMobile, comment, postId, user }) => {
               variant="contained"
               startIcon={<SendIcon />}
               size="small"
+              disabled={submitting}
             >
-              Update
+              {submitting ? 'Updating' : 'Update'}
             </Button>
           </div>
         </div>
@@ -143,8 +156,9 @@ const CommentAndButtons = ({ isMobile, comment, postId, user }) => {
               variant="contained"
               startIcon={<SendIcon />}
               size="small"
+              disabled={submitting}
             >
-              Reply
+              {submitting ? 'Replying' : 'Reply'}
             </Button>
           </div>
         </div>

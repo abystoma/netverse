@@ -4,6 +4,8 @@ import { useHistory, useLocation } from 'react-router-dom';
 import DeleteDialog from './DeleteDialog';
 import PostFormModal from './PostFormModal';
 import { removePost } from '../reducers/postReducer';
+import { notify } from '../reducers/notificationReducer';
+import getErrorMsg from '../utils/getErrorMsg';
 
 import { IconButton, Menu } from '@material-ui/core';
 import MoreHorizIcon from '@material-ui/icons/MoreHoriz';
@@ -17,10 +19,10 @@ const EditDeleteMenu = ({
   textSubmission,
   linkSubmission,
 }) => {
-  const [anchorEl, setAnchorEl] = useState(null);
   const dispatch = useDispatch();
   const history = useHistory();
   const location = useLocation();
+  const [anchorEl, setAnchorEl] = useState(null);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -33,12 +35,13 @@ const EditDeleteMenu = ({
   const handleDeletePost = async () => {
     try {
       handleClose();
-      dispatch(removePost(id));
+      await dispatch(removePost(id));
       if (location.pathname !== '/') {
         history.push('/');
       }
+      dispatch(notify(`Post deleted!`, 'success'));
     } catch (err) {
-      console.log(err.response.data.error);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -64,7 +67,6 @@ const EditDeleteMenu = ({
         </div>
       ) : (
         <div>
-          {' '}
           <IconButton onClick={handleClick}>
             <MoreHorizIcon />
           </IconButton>

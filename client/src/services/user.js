@@ -10,9 +10,27 @@ const setConfig = () => {
   };
 };
 
-const getUser = async (username) => {
-  const response = await axios.get(`${baseUrl}/${username}`);
+const getUser = async (username, limit, page) => {
+  const response = await axios.get(
+    `${baseUrl}/${username}/?limit=${limit}&page=${page}`
+  );
   return response.data;
 };
 
-export default { getUser };
+const uploadAvatar = async (avatarObj) => {
+  const response = await axios.post(
+    `${baseUrl}/avatar`,
+    avatarObj,
+    setConfig()
+  );
+  return response.data;
+};
+
+const removeAvatar = async () => {
+  const response = await axios.delete(`${baseUrl}/avatar`, setConfig());
+  return response.data;
+};
+
+const userService = { getUser, uploadAvatar, removeAvatar };
+
+export default userService;

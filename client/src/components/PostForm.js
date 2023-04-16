@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useHistory } from 'react-router-dom';
 import { Formik, Form } from 'formik';
-
 import { TextInput } from './FormikMuiFields';
 import generateBase64Encode from '../utils/genBase64Encode';
 import { createNewPost, updatePost } from '../reducers/postCommentsReducer';
+import { notify } from '../reducers/notificationReducer';
 import * as yup from 'yup';
+import AlertMessage from './AlertMessage';
+import getErrorMsg from '../utils/getErrorMsg';
 
-import { usePostFormStyles } from '../styles/muiStyles';
 import {
   Button,
   ButtonGroup,
@@ -17,6 +18,7 @@ import {
   useMediaQuery,
   IconButton,
 } from '@material-ui/core';
+import { usePostFormStyles } from '../styles/muiStyles';
 import Autocomplete from '@material-ui/lab/Autocomplete';
 import { useTheme } from '@material-ui/core/styles';
 import TitleIcon from '@material-ui/icons/Title';
@@ -27,6 +29,8 @@ import PublishIcon from '@material-ui/icons/Publish';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import CancelIcon from '@material-ui/icons/Cancel';
 import ChatIcon from '@material-ui/icons/Chat';
+import PostAddIcon from '@material-ui/icons/PostAdd';
+import EditIcon from '@material-ui/icons/Edit';
 
 const validationSchema = yup.object({
   title: yup.string().required('Required'),
@@ -35,14 +39,13 @@ const validationSchema = yup.object({
   linkSubmission: yup
     .string()
     .matches(
-      /^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/,
+      /^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\.[a-z]{2,6}(:[0-9]{1,5})?(\/.*)?$/,
       'Valid URL required'
     ),
 });
 
 const AddPostForm = ({
   postType,
-  closeModal,
   actionType,
   postToEditType,
   postToEditTitle,
@@ -53,10 +56,10 @@ const AddPostForm = ({
   fromSubreddit,
 }) => {
   const [fileName, setFileName] = useState('');
-  const subreddits = useSelector((state) => state.subreddits);
+  const [error, setError] = useState(null);
+  const { subs } = useSelector((state) => state);
   const dispatch = useDispatch();
   const history = useHistory();
-
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('xs'));
   const classes = usePostFormStyles();
@@ -72,37 +75,31 @@ const AddPostForm = ({
     setFileName('');
   };
 
-  const handleAddPost = async (values, { setSubmitting, resetForm }) => {
+  const handleAddPost = async (values, { setSubmitting }) => {
     try {
       setSubmitting(true);
       const postId = await dispatch(createNewPost(values));
       setSubmitting(false);
-
       history.push(`/comments/${postId}`);
-      resetForm();
-      closeModal();
+      dispatch(notify('Added new post!', 'success'));
     } catch (err) {
       setSubmitting(false);
-      console.log(err.response.data.message);
+      setError(getErrorMsg(err));
     }
   };
 
-  const handleUpdatePost = async (values, { setSubmitting, resetForm }) => {
+  const handleUpdatePost = async (values, { setSubmitting }) => {
     try {
       setSubmitting(true);
-      dispatch(updatePost(postToEditId, values));
+      await dispatch(updatePost(postToEditId, values));
       setSubmitting(false);
-
       history.push(`/comments/${postToEditId}`);
-      resetForm();
-      closeModal();
+      dispatch(notify('Successfully updated the post!', 'success'));
     } catch (err) {
       setSubmitting(false);
-      console.log(err.response.data.message);
+      setError(getErrorMsg(err));
     }
   };
-
-  console.log(postToEditSub, fromSubreddit);
 
   return (
     <div className={classes.root}>
@@ -160,7 +157,6 @@ const AddPostForm = ({
                 </Button>
               </ButtonGroup>
             )}
-
             <div className={classes.input}>
               <Typography
                 className={classes.inputIconText}
@@ -175,7 +171,7 @@ const AddPostForm = ({
                   setFieldValue('subreddit', value ? value.id : '')
                 }
                 fullWidth
-                options={subreddits}
+                options={subs && subs.allSubs}
                 disabled={actionType === 'edit' || !!fromSubreddit}
                 getOptionLabel={(option) => option.subredditName}
                 getOptionSelected={(option, value) => option.id === value.id}
@@ -186,17 +182,16 @@ const AddPostForm = ({
                       actionType === 'edit'
                         ? postToEditSub.subredditName
                         : !fromSubreddit
-                        ? 'Choose a subreddit'
+                        ? 'Choose a community'
                         : fromSubreddit.subredditName
                     }
-                    placeholder="Search by subreddit name"
+                    placeholder="Search by name"
                     required
                     disabled={actionType === 'edit' || !!fromSubreddit}
                   />
                 )}
               />
             </div>
-
             <div className={classes.input}>
               <TitleIcon className={classes.inputIcon} color="primary" />
               <TextInput
@@ -237,13 +232,12 @@ const AddPostForm = ({
                     onChange={(e) => fileInputOnChange(e, setFieldValue)}
                     required={values.postType === 'Image'}
                   />
-
                   <Button
                     component="label"
                     htmlFor="image-upload"
                     variant="outlined"
                     color="primary"
-                    fullWidth={!isMobile}
+                    fullWidth
                     startIcon={
                       values.imageSubmission ? (
                         <CheckCircleIcon />
@@ -274,7 +268,7 @@ const AddPostForm = ({
                     <img
                       alt={fileName}
                       src={values.imageSubmission}
-                      width={isMobile ? 250 : 400}
+                      width={isMobile ? 250 : 350}
                     />
                   </div>
                 )}
@@ -301,12 +295,24 @@ const AddPostForm = ({
               size="large"
               className={classes.submitButton}
               disabled={isSubmitting}
+              startIcon={postToEditId ? <EditIcon /> : <PostAddIcon />}
             >
-              Submit
+              {postToEditId
+                ? isSubmitting
+                  ? 'Updating'
+                  : 'Update'
+                : isSubmitting
+                ? 'Posting'
+                : 'Post'}
             </Button>
           </Form>
         )}
       </Formik>
+      <AlertMessage
+        error={error}
+        severity="error"
+        clearError={() => setError(null)}
+      />
     </div>
   );
 };

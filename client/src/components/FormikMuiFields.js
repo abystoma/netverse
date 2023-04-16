@@ -1,6 +1,5 @@
 import React from 'react';
 import { useField } from 'formik';
-
 import { TextField, FormControlLabel, Radio } from '@material-ui/core';
 
 export const TextInput = ({
@@ -29,7 +28,7 @@ export const TextInput = ({
       InputProps={InputProps}
       required={required}
       fullWidth
-      multiline={required}
+      multiline={multiline}
       rows={rows}
       rowsMax={rowsMax}
       variant={variant}

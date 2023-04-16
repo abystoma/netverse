@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link as RouterLink } from 'react-router-dom';
 import { logoutUser } from '../reducers/userReducer';
+import { notify } from '../reducers/notificationReducer';
 import MobileUserMenu from './MobileUserMenu';
-import AuthFormModal from './AuthFormModal';
-import storageService from '../utils/localStorage';
+import DesktopUserMenu from './DesktopUserMenu';
+import SearchBar from './SearchBar';
 
 import {
   AppBar,
@@ -13,79 +14,78 @@ import {
   Link,
   Button,
   useMediaQuery,
+  IconButton,
 } from '@material-ui/core';
-
 import { useNavStyles } from '../styles/muiStyles';
 import { useTheme } from '@material-ui/core/styles';
 import RedditIcon from '@material-ui/icons/Reddit';
 import FavoriteIcon from '@material-ui/icons/Favorite';
+import SearchIcon from '@material-ui/icons/Search';
 
 const NavBar = () => {
+  const [searchOpen, setSearchOpen] = useState(false);
   const user = useSelector((state) => state.user);
   const dispatch = useDispatch();
-
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('xs'));
   const classes = useNavStyles();
-  const userLoggedIn = storageService.loadUser() || user;
 
   const handleLogout = () => {
     dispatch(logoutUser());
-  };
-
-  const desktopMenu = () => {
-    return userLoggedIn ? (
-      <>
-        <Typography color="primary">
-          Welcome, {user && user.username}
-        </Typography>
-        <Button color="primary" onClick={handleLogout}>
-          Logout
-        </Button>
-      </>
-    ) : (
-      <>
-        <AuthFormModal />
-      </>
-    );
+    dispatch(notify(`u/${user.username} logged out`, 'success'));
   };
 
   return (
-    <div>
-      <AppBar position="static" color="inherit">
-        <Toolbar>
-          <div className={classes.topLeftButton}>
-            <div className={classes.logoWrapper}>
-              <Button
-                className={classes.logo}
-                color="primary"
-                component={RouterLink}
-                to="/"
-                startIcon={<RedditIcon fontSize="large" />}
-              >
-                readify
-              </Button>
-              <Typography variant="caption" color="secondary">
-                Made with <FavoriteIcon style={{ fontSize: 12 }} /> by
-                <Link
-                  href={'https://github.com/amand33p'}
-                  color="inherit"
-                  target="_blank"
-                  rel="noopener"
+    <AppBar position="sticky" color="inherit" elevation={1}>
+      <Toolbar disableGutters={isMobile}>
+        {!searchOpen && (
+          <>
+            <div className={classes.leftPortion}>
+              <div className={classes.logoWrapper}>
+                <Button
+                  className={classes.logo}
+                  color="primary"
+                  component={RouterLink}
+                  to="/"
+                  size="large"
                 >
-                  <strong>{` amand33p`}</strong>
-                </Link>
-              </Typography>
+                  Netverse
+                </Button>
+                <Typography variant="caption" color="secondary">
+                  Made with <FavoriteIcon style={{ fontSize: 12 }} /> by
+                  <Link
+                    href={'https://github.com/abystoma'}
+                    color="inherit"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <strong>{` abystoma`}</strong>
+                  </Link>
+                </Typography>
+              </div>
+              {!isMobile && <SearchBar />}
             </div>
-          </div>
-          {isMobile ? (
-            <MobileUserMenu user={user} handleLogout={handleLogout} />
-          ) : (
-            <>{desktopMenu()}</>
-          )}
-        </Toolbar>
-      </AppBar>
-    </div>
+            {isMobile ? (
+              <>
+                <IconButton
+                  color="primary"
+                  className={classes.searchBtn}
+                  onClick={() => setSearchOpen((prevState) => !prevState)}
+                >
+                  <SearchIcon />
+                </IconButton>
+                <MobileUserMenu user={user} handleLogout={handleLogout} />
+              </>
+            ) : (
+              <DesktopUserMenu user={user} handleLogout={handleLogout} />
+            )}
+          </>
+        )}
+        {searchOpen && isMobile && (
+          <SearchBar isMobile={true} setSearchOpen={setSearchOpen} />
+        )}
+      </Toolbar>
+    </AppBar>
   );
 };
 

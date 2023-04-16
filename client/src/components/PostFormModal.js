@@ -13,7 +13,6 @@ import {
   Paper,
   Avatar,
   useMediaQuery,
-  Typography,
   MenuItem,
   ListItemIcon,
 } from '@material-ui/core';
@@ -80,8 +79,8 @@ const AddPostModal = ({
       {actionType === 'edit' ? (
         <MenuItem onClick={handleMenuClick}>
           <ListItemIcon>
-            <EditIcon style={{ marginRight: 5 }} />
-            <Typography variant="subtitle2">Edit Post</Typography>
+            <EditIcon style={{ marginRight: 7 }} />
+            Edit Post
           </ListItemIcon>
         </MenuItem>
       ) : isMobile ? (
@@ -102,7 +101,7 @@ const AddPostModal = ({
               src={getCircularAvatar(user.avatar.imageLink)}
             />
           ) : (
-            <Avatar style={{ backgroundColor: '#941a1c' }}>
+            <Avatar className={classes.defaultAvatar}>
               {user.username[0]}
             </Avatar>
           )}
@@ -135,15 +134,12 @@ const AddPostModal = ({
         fullWidth={true}
       >
         <DialogTitle onClose={handleClose}>
-          <Typography color="primary" className={classes.dialogTitle}>
-            {actionType === 'edit' ? 'Update your post' : 'Add a new post'}
-          </Typography>
+          {actionType === 'edit' ? 'Update your post' : 'Add a new post'}
         </DialogTitle>
         <DialogContent>
           <PostForm
             actionType={actionType}
             postType={postType}
-            closeModal={handleClose}
             postToEditType={postToEditType}
             postToEditTitle={postToEditTitle}
             postToEditSub={postToEditSub}

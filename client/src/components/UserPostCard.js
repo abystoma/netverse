@@ -1,20 +1,23 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { toggleUpvote, toggleDownvote } from '../reducers/userPageReducer';
+import { notify } from '../reducers/notificationReducer';
 import { UpvoteButton, DownvoteButton } from './VoteButtons';
-import ReactTimeAgo from 'react-time-ago';
+import TimeAgo from 'timeago-react';
 import ReactHtmlParser from 'react-html-parser';
 import { trimLink, prettifyLink, fixUrl } from '../utils/formatUrl';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import CommentIcon from '@material-ui/icons/Comment';
+import getErrorMsg from '../utils/getErrorMsg';
 
 import { Paper, Typography, Link, Button } from '@material-ui/core';
 import { useUserPostCardStyles } from '../styles/muiStyles';
 
 const UserPostCard = ({ post, user, isMobile }) => {
-  const dispatch = useDispatch();
   const classes = useUserPostCardStyles();
+  const dispatch = useDispatch();
+  const { darkMode } = useSelector((state) => state);
 
   const {
     id,
@@ -47,7 +50,7 @@ const UserPostCard = ({ post, user, isMobile }) => {
         dispatch(toggleUpvote(id, updatedUpvotedBy, updatedDownvotedBy));
       }
     } catch (err) {
-      console.log(err.response.data.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -62,7 +65,7 @@ const UserPostCard = ({ post, user, isMobile }) => {
         dispatch(toggleDownvote(id, updatedDownvotedBy, updatedUpvotedBy));
       }
     } catch (err) {
-      console.log(err.response.data.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -87,7 +90,13 @@ const UserPostCard = ({ post, user, isMobile }) => {
         <Typography
           variant="body1"
           style={{
-            color: isUpvoted ? '#FF8b60' : isDownvoted ? '#9494FF' : '#333',
+            color: isUpvoted
+              ? '#FF8b60'
+              : isDownvoted
+              ? '#9494FF'
+              : darkMode
+              ? '#e4e4e4'
+              : '#333',
             fontWeight: 600,
           }}
         >
@@ -114,10 +123,10 @@ const UserPostCard = ({ post, user, isMobile }) => {
             <Link component={RouterLink} to={`/u/${author.username}`}>
               {` u/${author.username} `}
             </Link>
-            • <ReactTimeAgo date={new Date(createdAt)} />
+            • <TimeAgo datetime={new Date(createdAt)} />
             {createdAt !== updatedAt && (
               <em>
-                {' • edited'} <ReactTimeAgo date={new Date(updatedAt)} />
+                {' • edited'} <TimeAgo datetime={new Date(updatedAt)} />
               </em>
             )}
           </Typography>

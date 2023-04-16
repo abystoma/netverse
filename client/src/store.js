@@ -4,19 +4,23 @@ import thunk from 'redux-thunk';
 import notificationReducer from './reducers/notificationReducer';
 import userReducer from './reducers/userReducer';
 import postReducer from './reducers/postReducer';
-import subredditReducer from './reducers/subredditReducer';
+import subReducer from './reducers/subReducer';
 import postCommentsReducer from './reducers/postCommentsReducer';
 import userPageReducer from './reducers/userPageReducer';
-import subredditPageReducer from './reducers/subredditPageReducer';
+import subPageReducer from './reducers/subPageReducer';
+import searchReducer from './reducers/searchReducer';
+import themeReducer from './reducers/themeReducer';
 
 const reducer = combineReducers({
   user: userReducer,
   notification: notificationReducer,
   posts: postReducer,
   postComments: postCommentsReducer,
-  subreddits: subredditReducer,
+  subs: subReducer,
   userPage: userPageReducer,
-  subredditPage: subredditPageReducer,
+  subPage: subPageReducer,
+  search: searchReducer,
+  darkMode: themeReducer,
 });
 
 const store = createStore(reducer, composeWithDevTools(applyMiddleware(thunk)));

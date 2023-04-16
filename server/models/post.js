@@ -64,7 +64,7 @@ const postSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
-    maxlength: 40,
+    maxlength: 100,
     trim: true,
   },
   postType: {
@@ -119,7 +119,7 @@ const postSchema = new mongoose.Schema({
   },
   hotAlgo: {
     type: Number,
-    default: 0,
+    default: Date.now,
   },
   controversialAlgo: {
     type: Number,

@@ -1,39 +1,61 @@
-import subredditService from '../services/subreddits';
+import subService from '../services/subs';
 import postService from '../services/posts';
 
-const subredditPageReducer = (state = null, action) => {
+const subPageReducer = (state = null, action) => {
   switch (action.type) {
-    case 'FETCH_SUBREDDIT':
+    case 'FETCH_SUB':
       return action.payload;
+    case 'LOAD_SUB_POSTS':
+      return {
+        ...state,
+        posts: {
+          ...action.payload.posts,
+          results: [...state.posts.results, ...action.payload.posts.results],
+        },
+      };
     case 'TOGGLE_SUBPAGE_VOTE':
       return {
         ...state,
-        posts: state.posts.map((p) =>
-          p.id !== action.payload.id ? p : { ...p, ...action.payload.data }
-        ),
+        posts: {
+          ...state.posts,
+          results: state.posts.results.map((p) =>
+            p.id !== action.payload.id ? p : { ...p, ...action.payload.data }
+          ),
+        },
       };
-    case 'SUBSCRIBE_SUBREDDIT':
+    case 'SUBSCRIBE_SUB':
       return {
         ...state,
-        ...action.payload,
+        subDetails: { ...state.subDetails, ...action.payload },
       };
     case 'EDIT_DESCRIPTION':
       return {
         ...state,
-        description: action.payload,
+        subDetails: { ...state.subDetails, description: action.payload },
       };
     default:
       return state;
   }
 };
 
-export const fetchSubreddit = (subredditName) => {
+export const fetchSub = (subredditName, sortBy) => {
   return async (dispatch) => {
-    const subreddit = await subredditService.getSubreddit(subredditName);
+    const sub = await subService.getSubreddit(subredditName, sortBy, 10, 1);
 
     dispatch({
-      type: 'FETCH_SUBREDDIT',
-      payload: subreddit,
+      type: 'FETCH_SUB',
+      payload: sub,
+    });
+  };
+};
+
+export const loadSubPosts = (subredditName, sortBy, page) => {
+  return async (dispatch) => {
+    const sub = await subService.getSubreddit(subredditName, sortBy, 10, page);
+
+    dispatch({
+      type: 'LOAD_SUB_POSTS',
+      payload: sub,
     });
   };
 };
@@ -75,17 +97,17 @@ export const toggleSubscribe = (id, subscribedBy) => {
     const subscriberCount = subscribedBy.length;
 
     dispatch({
-      type: 'SUBSCRIBE_SUBREDDIT',
+      type: 'SUBSCRIBE_SUB',
       payload: { subscribedBy, subscriberCount },
     });
 
-    await subredditService.subscribeSub(id);
+    await subService.subscribeSub(id);
   };
 };
 
 export const editDescription = (id, description) => {
   return async (dispatch) => {
-    await subredditService.updateDescription(id, { description });
+    await subService.updateDescription(id, { description });
 
     dispatch({
       type: 'EDIT_DESCRIPTION',
@@ -94,4 +116,4 @@ export const editDescription = (id, description) => {
   };
 };
 
-export default subredditPageReducer;
+export default subPageReducer;

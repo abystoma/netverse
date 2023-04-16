@@ -1,28 +1,47 @@
-const router = require('express').Router();
 const Subreddit = require('../models/subreddit');
 const User = require('../models/user');
-const { auth } = require('../utils/middleware');
+const Post = require('../models/post');
 
-router.get('/', async (_req, res) => {
+const paginateResults = require('../utils/paginateResults');
+
+const getSubreddits = async (_req, res) => {
   const allSubreddits = await Subreddit.find({}).select('id subredditName');
   res.status(200).json(allSubreddits);
-});
+};
 
-router.get('/:subredditName', async (req, res) => {
+const getSubredditPosts = async (req, res) => {
   const { subredditName } = req.params;
+  const page = Number(req.query.page);
+  const limit = Number(req.query.limit);
+  const sortBy = req.query.sortby;
+
+  let sortQuery;
+  switch (sortBy) {
+    case 'new':
+      sortQuery = { createdAt: -1 };
+      break;
+    case 'top':
+      sortQuery = { pointsCount: -1 };
+      break;
+    case 'best':
+      sortQuery = { voteRatio: -1 };
+      break;
+    case 'hot':
+      sortQuery = { hotAlgo: -1 };
+      break;
+    case 'controversial':
+      sortQuery = { controversialAlgo: -1 };
+      break;
+    case 'old':
+      sortQuery = { createdAt: 1 };
+      break;
+    default:
+      sortQuery = {};
+  }
 
   const subreddit = await Subreddit.findOne({
     subredditName: { $regex: new RegExp('^' + subredditName + '$', 'i') },
-  })
-    .populate('admin', 'username')
-    .populate({
-      path: 'posts',
-      populate: { path: 'subreddit', select: 'subredditName' },
-    })
-    .populate({
-      path: 'posts',
-      populate: { path: 'author', select: 'username' },
-    });
+  }).populate('admin', 'username');
 
   if (!subreddit) {
     return res.status(404).send({
@@ -30,21 +49,50 @@ router.get('/:subredditName', async (req, res) => {
     });
   }
 
-  res.status(200).json(subreddit);
-});
+  const postsCount = await Post.find({
+    subreddit: subreddit.id,
+  }).countDocuments();
 
-router.post('/', auth, async (req, res) => {
+  const paginated = paginateResults(page, limit, postsCount);
+  const subredditPosts = await Post.find({ subreddit: subreddit.id })
+    .sort(sortQuery)
+    .select('-comments')
+    .limit(limit)
+    .skip(paginated.startIndex)
+    .populate('author', 'username')
+    .populate('subreddit', 'subredditName');
+
+  const paginatedPosts = {
+    previous: paginated.results.previous,
+    results: subredditPosts,
+    next: paginated.results.next,
+  };
+
+  res.status(200).json({ subDetails: subreddit, posts: paginatedPosts });
+};
+
+const getTopSubreddits = async (_req, res) => {
+  const top10Subreddits = await Subreddit.find({})
+    .sort({ subscriberCount: -1 })
+    .limit(10)
+    .select('-description -posts -admin ');
+
+  res.status(200).json(top10Subreddits);
+};
+
+const createNewSubreddit = async (req, res) => {
   const { subredditName, description } = req.body;
 
   const admin = await User.findById(req.user);
-
   if (!admin) {
     return res
       .status(404)
       .send({ message: 'User does not exist in database.' });
   }
 
-  const existingSubName = await Subreddit.findOne({ subredditName });
+  const existingSubName = await Subreddit.findOne({
+    subredditName: { $regex: new RegExp('^' + subredditName + '$', 'i') },
+  });
 
   if (existingSubName) {
     return res.status(403).send({
@@ -66,9 +114,9 @@ router.post('/', auth, async (req, res) => {
   await admin.save();
 
   return res.status(201).json(savedSubreddit);
-});
+};
 
-router.patch('/:id', auth, async (req, res) => {
+const editSubDescription = async (req, res) => {
   const { description } = req.body;
   const { id } = req.params;
 
@@ -101,9 +149,9 @@ router.patch('/:id', auth, async (req, res) => {
 
   await subreddit.save();
   res.status(202).end();
-});
+};
 
-router.post('/:id/subscribe', auth, async (req, res) => {
+const subscribeToSubreddit = async (req, res) => {
   const { id } = req.params;
 
   const subreddit = await Subreddit.findById(id);
@@ -129,6 +177,13 @@ router.post('/:id/subscribe', auth, async (req, res) => {
   await user.save();
 
   res.status(201).end();
-});
+};
 
-module.exports = router;
+module.exports = {
+  getSubreddits,
+  getSubredditPosts,
+  getTopSubreddits,
+  createNewSubreddit,
+  editSubDescription,
+  subscribeToSubreddit,
+};

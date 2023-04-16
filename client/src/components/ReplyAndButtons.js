@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { editReply, deleteReply } from '../reducers/postCommentsReducer';
 import { useDispatch } from 'react-redux';
+import { editReply, deleteReply } from '../reducers/postCommentsReducer';
+import { notify } from '../reducers/notificationReducer';
 import DeleteDialog from './DeleteDialog';
+import getErrorMsg from '../utils/getErrorMsg';
 
 import { TextField, Button, Typography } from '@material-ui/core';
 import { useCommentAndBtnsStyles } from '../styles/muiStyles';
@@ -11,23 +13,29 @@ import EditIcon from '@material-ui/icons/Edit';
 const ReplyAndButtons = ({ isMobile, reply, postId, commentId, user }) => {
   const [editOpen, setEditOpen] = useState(false);
   const [editInput, setEditInput] = useState(reply.replyBody);
+  const [submitting, setSubmitting] = useState(false);
   const dispatch = useDispatch();
   const classes = useCommentAndBtnsStyles();
 
   const handleEditReply = async () => {
     try {
-      dispatch(editReply(postId, commentId, reply.id, editInput));
+      setSubmitting(true);
+      await dispatch(editReply(postId, commentId, reply.id, editInput));
+      setSubmitting(false);
       setEditOpen(false);
+      dispatch(notify(`Reply edited!`, 'success'));
     } catch (err) {
-      console.log(err.response.data.message);
+      setSubmitting(false);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
   const handleReplyDelete = async () => {
     try {
-      dispatch(deleteReply(postId, commentId, reply.id));
+      await dispatch(deleteReply(postId, commentId, reply.id));
+      dispatch(notify(`Reply deleted!`, 'success'));
     } catch (err) {
-      console.log(err.response.data.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -64,8 +72,9 @@ const ReplyAndButtons = ({ isMobile, reply, postId, commentId, user }) => {
               variant="contained"
               startIcon={<SendIcon />}
               size="small"
+              disabled={submitting}
             >
-              Update
+              {submitting ? 'Updating' : 'Update'}
             </Button>
           </div>
         </div>

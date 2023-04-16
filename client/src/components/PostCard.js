@@ -2,10 +2,12 @@ import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link as RouterLink } from 'react-router-dom';
 import { UpvoteButton, DownvoteButton } from './VoteButtons';
+import { notify } from '../reducers/notificationReducer';
 import EditDeleteMenu from './EditDeleteMenu';
 import getEditedThumbail from '../utils/cloudinaryTransform';
 import { trimLink, prettifyLink, fixUrl } from '../utils/formatUrl';
-import ReactTimeAgo from 'react-time-ago';
+import TimeAgo from 'timeago-react';
+import getErrorMsg from '../utils/getErrorMsg';
 
 import {
   Paper,
@@ -40,15 +42,14 @@ const PostCard = ({ post, toggleUpvote, toggleDownvote }) => {
     updatedAt,
   } = post;
 
-  const user = useSelector((state) => state.user);
+  const classes = useCardStyles();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('xs'));
   const dispatch = useDispatch();
+  const { user, darkMode } = useSelector((state) => state);
 
   const isUpvoted = user && upvotedBy.includes(user.id);
   const isDownvoted = user && downvotedBy.includes(user.id);
-
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('xs'));
-  const classes = useCardStyles();
 
   const handleUpvoteToggle = async () => {
     try {
@@ -61,7 +62,7 @@ const PostCard = ({ post, toggleUpvote, toggleDownvote }) => {
         dispatch(toggleUpvote(id, updatedUpvotedBy, updatedDownvotedBy));
       }
     } catch (err) {
-      console.log(err.response.data.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -76,7 +77,7 @@ const PostCard = ({ post, toggleUpvote, toggleDownvote }) => {
         dispatch(toggleDownvote(id, updatedDownvotedBy, updatedUpvotedBy));
       }
     } catch (err) {
-      console.log(err.response.data.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -86,6 +87,7 @@ const PostCard = ({ post, toggleUpvote, toggleDownvote }) => {
       : postType === 'Image'
       ? imageSubmission.imageLink
       : '';
+
   const formattedLink = trimLink(prettifyLink(linkToShow), 30);
 
   return (
@@ -100,7 +102,13 @@ const PostCard = ({ post, toggleUpvote, toggleDownvote }) => {
         <Typography
           variant="body1"
           style={{
-            color: isUpvoted ? '#FF8b60' : isDownvoted ? '#9494FF' : '#333',
+            color: isUpvoted
+              ? '#FF8b60'
+              : isDownvoted
+              ? '#9494FF'
+              : darkMode
+              ? '#e4e4e4'
+              : '#333',
             fontWeight: 600,
           }}
         >
@@ -176,7 +184,7 @@ const PostCard = ({ post, toggleUpvote, toggleDownvote }) => {
             <Link component={RouterLink} to={`/u/${author.username}`}>
               u/{author.username}
             </Link>{' '}
-            • <ReactTimeAgo date={new Date(createdAt)} />
+            • <TimeAgo datetime={new Date(createdAt)} />
             {createdAt !== updatedAt && '*'}
           </Typography>
         </Typography>

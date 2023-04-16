@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -6,13 +6,18 @@ import {
   toggleUpvote,
   toggleDownvote,
 } from '../reducers/postCommentsReducer';
+import { notify } from '../reducers/notificationReducer';
 import CommentInput from './CommentInput';
 import { UpvoteButton, DownvoteButton } from './VoteButtons';
 import EditDeleteMenu from './EditDeleteMenu';
 import CommentsDisplay from './CommentsDisplay';
-import ReactTimeAgo from 'react-time-ago';
+import SortCommentsMenu from './SortCommentsMenu';
+import ErrorPage from './ErrorPage';
+import LoadingSpinner from './LoadingSpinner';
+import TimeAgo from 'timeago-react';
 import { trimLink, prettifyLink, fixUrl } from '../utils/formatUrl';
 import ReactHtmlParser from 'react-html-parser';
+import getErrorMsg from '../utils/getErrorMsg';
 
 import {
   Container,
@@ -22,6 +27,7 @@ import {
   Link,
   MenuItem,
   ListItemIcon,
+  Divider,
 } from '@material-ui/core';
 import { usePostCommentsStyles } from '../styles/muiStyles';
 import { useTheme } from '@material-ui/core/styles';
@@ -31,29 +37,46 @@ import CommentIcon from '@material-ui/icons/Comment';
 const PostCommentsPage = () => {
   const { id: postId } = useParams();
   const post = useSelector((state) => state.postComments);
-  const user = useSelector((state) => state.user);
+  const { user, darkMode } = useSelector((state) => state);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [pageError, setPageError] = useState(null);
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (!post || post.id !== postId) {
-      const getComments = async () => {
-        try {
-          dispatch(fetchPostComments(postId));
-        } catch (err) {
-          console.log(err.message);
-        }
-      };
-      getComments();
-    }
+    const getComments = async () => {
+      try {
+        await dispatch(fetchPostComments(postId));
+        setPageLoading(false);
+      } catch (err) {
+        setPageError(getErrorMsg(err));
+      }
+    };
+    getComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post]);
+  }, [postId]);
 
   const classes = usePostCommentsStyles();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('xs'));
 
-  if (!post) {
-    return null;
+  if (pageError) {
+    return (
+      <Container disableGutters>
+        <Paper variant="outlined" className={classes.mainPaper}>
+          <ErrorPage errorMsg={pageError} />
+        </Paper>
+      </Container>
+    );
+  }
+
+  if (!post || pageLoading) {
+    return (
+      <Container disableGutters>
+        <Paper variant="outlined" className={classes.mainPaper}>
+          <LoadingSpinner text={'Fetching post comments...'} />
+        </Paper>
+      </Container>
+    );
   }
 
   const {
@@ -88,7 +111,7 @@ const PostCommentsPage = () => {
         dispatch(toggleUpvote(id, updatedUpvotedBy, updatedDownvotedBy));
       }
     } catch (err) {
-      console.log(err.response.data.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -103,7 +126,7 @@ const PostCommentsPage = () => {
         dispatch(toggleDownvote(id, updatedDownvotedBy, updatedUpvotedBy));
       }
     } catch (err) {
-      console.log(err.response.data.message);
+      dispatch(notify(getErrorMsg(err), 'error'));
     }
   };
 
@@ -124,7 +147,13 @@ const PostCommentsPage = () => {
             <Typography
               variant="body1"
               style={{
-                color: isUpvoted ? '#FF8b60' : isDownvoted ? '#9494FF' : '#333',
+                color: isUpvoted
+                  ? '#FF8b60'
+                  : isDownvoted
+                  ? '#9494FF'
+                  : darkMode
+                  ? '#e4e4e4'
+                  : '#333',
                 fontWeight: 600,
               }}
             >
@@ -147,10 +176,10 @@ const PostCommentsPage = () => {
                 <Link component={RouterLink} to={`/u/${author.username}`}>
                   {` u/${author.username} `}
                 </Link>
-                • <ReactTimeAgo date={new Date(createdAt)} />
+                • <TimeAgo datetime={new Date(createdAt)} />
                 {createdAt !== updatedAt && (
                   <em>
-                    {' • edited'} <ReactTimeAgo date={new Date(updatedAt)} />
+                    {' • edited'} <TimeAgo datetime={new Date(updatedAt)} />
                   </em>
                 )}
               </Typography>
@@ -159,9 +188,7 @@ const PostCommentsPage = () => {
               {title}
             </Typography>
             {postType === 'Text' ? (
-              <Typography variant="body1">
-                {ReactHtmlParser(textSubmission)}
-              </Typography>
+              <div>{ReactHtmlParser(textSubmission)}</div>
             ) : postType === 'Image' ? (
               <a
                 href={imageSubmission.imageLink}
@@ -202,8 +229,10 @@ const PostCommentsPage = () => {
               )}
             </div>
             <CommentInput user={user} postId={id} isMobile={isMobile} />
+            <SortCommentsMenu />
           </div>
         </div>
+        <Divider className={classes.divider} />
         <CommentsDisplay comments={comments} postId={id} isMobile={isMobile} />
       </Paper>
     </Container>

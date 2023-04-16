@@ -1,22 +1,16 @@
-const router = require('express').Router();
 const User = require('../models/user');
-const { auth } = require('../utils/middleware');
-const { cloudinary } = require('../utils/config');
+const Post = require('../models/post');
+const { cloudinary, UPLOAD_PRESET } = require('../utils/config');
+const paginateResults = require('../utils/paginateResults');
 
-router.get('/:username', async (req, res) => {
+const getUser = async (req, res) => {
   const { username } = req.params;
+  const page = Number(req.query.page);
+  const limit = Number(req.query.limit);
 
   const user = await User.findOne({
     username: { $regex: new RegExp('^' + username + '$', 'i') },
-  })
-    .populate({
-      path: 'posts',
-      populate: { path: 'subreddit', select: 'subredditName' },
-    })
-    .populate({
-      path: 'posts',
-      populate: { path: 'author', select: 'username' },
-    });
+  });
 
   if (!user) {
     return res
@@ -24,10 +18,26 @@ router.get('/:username', async (req, res) => {
       .send({ message: `Username '${username}' does not exist on server.` });
   }
 
-  res.status(200).json(user);
-});
+  const postsCount = await Post.find({ author: user.id }).countDocuments();
+  const paginated = paginateResults(page, limit, postsCount);
+  const userPosts = await Post.find({ author: user.id })
+    .sort({ createdAt: -1 })
+    .select('-comments')
+    .limit(limit)
+    .skip(paginated.startIndex)
+    .populate('author', 'username')
+    .populate('subreddit', 'subredditName');
 
-router.post('/avatar', auth, async (req, res) => {
+  const paginatedPosts = {
+    previous: paginated.results.previous,
+    results: userPosts,
+    next: paginated.results.next,
+  };
+
+  res.status(200).json({ userDetails: user, posts: paginatedPosts });
+};
+
+const setUserAvatar = async (req, res) => {
   const { avatarImage } = req.body;
 
   if (!avatarImage) {
@@ -47,7 +57,7 @@ router.post('/avatar', auth, async (req, res) => {
   const uploadedImage = await cloudinary.uploader.upload(
     avatarImage,
     {
-      upload_preset: 'readify',
+      upload_preset: UPLOAD_PRESET,
     },
     (error) => {
       if (error) return res.status(401).send({ message: error.message });
@@ -61,18 +71,10 @@ router.post('/avatar', auth, async (req, res) => {
   };
 
   const savedUser = await user.save();
-  const populatedUser = await savedUser
-    .populate({
-      path: 'posts',
-      select: '-upvotedBy -downvotedBy',
-      populate: { path: 'subreddit', select: 'subredditName' },
-    })
-    .execPopulate();
+  res.status(201).json({ avatar: savedUser.avatar });
+};
 
-  res.status(201).json(populatedUser);
-});
-
-router.delete('/avatar', auth, async (req, res) => {
+const removeUserAvatar = async (req, res) => {
   const user = await User.findById(req.user);
 
   if (!user) {
@@ -83,12 +85,12 @@ router.delete('/avatar', auth, async (req, res) => {
 
   user.avatar = {
     exists: false,
-    imageLink: 'null',
+    imageLink: 'null',  
     imageId: 'null',
   };
 
   await user.save();
   res.status(204).end();
-});
+};
 
-module.exports = router;
+module.exports = { getUser, setUserAvatar, removeUserAvatar };
