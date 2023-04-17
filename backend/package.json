@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build:ui": "rm -rf build && cd ../client && rm -rf build && npm run build --prod && cp -r build ../server"
+    "build:ui": "rm -rf build && cd ../frontend && rm -rf build && npm run build --prod && cp -r build ../backend"
   },
   "author": "abystoma",
   "license": "ISC",
